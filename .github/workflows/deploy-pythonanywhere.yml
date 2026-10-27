@@ -15,12 +15,25 @@ jobs:
 
       - name: Validate required secrets
         shell: bash
+        env:
+          PA_USERNAME: ${{ secrets.PA_USERNAME }}
+          PA_TOKEN: ${{ secrets.PA_TOKEN }}
+          PA_TARGET_DIR: ${{ secrets.PA_TARGET_DIR }}
+          PA_WEBAPP_DOMAIN: ${{ secrets.PA_WEBAPP_DOMAIN }}
         run: |
-          set -euo pipefail
-          : "${{ secrets.PA_USERNAME }}"
-          : "${{ secrets.PA_TOKEN }}"
-          : "${{ secrets.PA_TARGET_DIR }}"
-          : "${{ secrets.PA_WEBAPP_DOMAIN }}"
+          missing=0
+          for name in PA_USERNAME PA_TOKEN PA_TARGET_DIR PA_WEBAPP_DOMAIN; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Le secret ${name} est manquant. Ajoutez-le dans Settings → Secrets and variables → Actions."
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Il manque des secrets : c'est normal si vous venez de créer votre dépôt."
+            echo "Créez les 4 secrets (voir README), puis relancez ce workflow (Actions → Run workflow)."
+            exit 1
+          fi
+          echo "Les 4 secrets sont bien présents ✅"
 
       - name: Upload all files recursively (dirs auto-created by Files API)
         shell: bash
@@ -46,6 +59,8 @@ jobs:
             case "$rel" in
               .git/*|.github/*|.venv/*|__pycache__/*|node_modules/*) continue ;;
               *.pyc|.DS_Store) continue ;;
+              # Les consignes de l'atelier n'ont pas besoin d'être sur le serveur
+              exercices/*|*.md) continue ;;
             esac
 
             remote_path="${TARGET_DIR}/${rel}"
